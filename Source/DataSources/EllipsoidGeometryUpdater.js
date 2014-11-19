@@ -576,7 +576,6 @@ define([
         var options = this._options;
 
         //In 3D we use a fast path by modifying Primitive.modelMatrix instead of regenerating the primitive every frame.
-        //Once #1486 is fixed, we can use the fast path in all cases.
         var sceneMode = this._scene.mode;
         var in3D = sceneMode === SceneMode.SCENE3D;
 

@@ -31,7 +31,7 @@ var viewer = new Cesium.Viewer('cesiumContainer');
 Cesium.viewerEntityMixin(viewer);
 
 //Example 1: Load with default styling.
-Sandcastle.addDefaultToolbarButton('Default styling', function() {
+Sandcastle.addToolbarButton('Default styling', function() {
     viewer.dataSources.add(Cesium.GeoJsonDataSource.fromUrl('../../SampleData/ne_10m_us_states.topojson'));
 });
 
@@ -45,7 +45,7 @@ Sandcastle.addToolbarButton('Basic styling', function() {
 });
 
 //Example 3: Apply custom graphics after load.
-Sandcastle.addToolbarButton('Custom styling', function() {
+Sandcastle.addDefaultToolbarButton('Custom styling', function() {
     //Seed the random number generator for repeatable results.
     Cesium.Math.setRandomNumberSeed(0);
 
@@ -81,7 +81,10 @@ Sandcastle.addToolbarButton('Custom styling', function() {
             //Extrude the polygon based on the state's population.  Each entity
             //stores the properties for the GeoJSON feature it was created from
             //Since the population is a huge number, we divide by 50.
-            entity.polygon.extrudedHeight = new Cesium.ConstantProperty(entity.properties.Population / 50.0);
+            entity.polygon.extrudedHeight = new Cesium.SampledProperty(Number);
+            var now = Cesium.JulianDate.now();
+            entity.polygon.extrudedHeight.addSample(now, 0)
+            entity.polygon.extrudedHeight.addSample(Cesium.JulianDate.addSeconds(now, 86400, new Cesium.JulianDate()), entity.properties.Population / 50.0)
         }
     });
 });

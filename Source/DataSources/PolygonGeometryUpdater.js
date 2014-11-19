@@ -1,5 +1,6 @@
 /*global define*/
 define([
+        '../Core/Cartesian3',
         '../Core/Color',
         '../Core/ColorGeometryInstanceAttribute',
         '../Core/defaultValue',
@@ -7,20 +8,25 @@ define([
         '../Core/defineProperties',
         '../Core/destroyObject',
         '../Core/DeveloperError',
+        '../Core/Ellipsoid',
         '../Core/Event',
         '../Core/GeometryInstance',
         '../Core/Iso8601',
+        '../Core/Matrix4',
         '../Core/PolygonGeometry',
         '../Core/PolygonOutlineGeometry',
         '../Core/ShowGeometryInstanceAttribute',
+        '../Core/Transforms',
         '../Scene/MaterialAppearance',
         '../Scene/PerInstanceColorAppearance',
         '../Scene/Primitive',
+        '../Scene/SceneMode',
         './ColorMaterialProperty',
         './ConstantProperty',
         './MaterialProperty',
         './Property'
     ], function(
+        Cartesian3,
         Color,
         ColorGeometryInstanceAttribute,
         defaultValue,
@@ -28,15 +34,19 @@ define([
         defineProperties,
         destroyObject,
         DeveloperError,
+        Ellipsoid,
         Event,
         GeometryInstance,
         Iso8601,
+        Matrix4,
         PolygonGeometry,
         PolygonOutlineGeometry,
         ShowGeometryInstanceAttribute,
+        Transforms,
         MaterialAppearance,
         PerInstanceColorAppearance,
         Primitive,
+        SceneMode,
         ColorMaterialProperty,
         ConstantProperty,
         MaterialProperty,
@@ -512,6 +522,9 @@ define([
         this._options = new GeometryOptions(geometryUpdater._entity);
     };
 
+    var radiiScratch = new Cartesian3();
+    var modelMatrix = new Matrix4();
+
     DynamicGeometryUpdater.prototype.update = function(time) {
         //>>includeStart('debug', pragmas.debug);
         if (!defined(time)) {
@@ -520,14 +533,6 @@ define([
         //>>includeEnd('debug');
 
         var geometryUpdater = this._geometryUpdater;
-
-        if (defined(this._primitive)) {
-            this._primitives.remove(this._primitive);
-        }
-
-        if (defined(this._outlinePrimitive)) {
-            this._primitives.remove(this._outlinePrimitive);
-        }
 
         var entity = geometryUpdater._entity;
         var polygon = entity.polygon;
@@ -546,9 +551,72 @@ define([
         var granularity = polygon.granularity;
         var stRotation = polygon.stRotation;
 
+        //In 3D we use a fast path by modifying Primitive.modelMatrix instead of regenerating the primitive every frame.
+        var sceneMode = this._geometryUpdater._scene.mode;
+        var in3D = sceneMode === SceneMode.SCENE3D;
+
+        //We only rebuild the primitive if something other than the radii has changed
+        //For the radii, we use unit sphere and then deform it with a scale matrix.
+        var modelMatrixOnly = defined(this._primitive) && //
+                              Property.isConstant(positions) &&
+                              Property.isConstant(granularity) &&
+                              Property.isConstant(stRotation);
+
+        options.height = defined(height) ? height.getValue(time, options) : 0;
+        options.extrudedHeight = defined(extrudedHeight) ? extrudedHeight.getValue(time, options) : 0;
+
+        if (modelMatrixOnly) {
+            if (in3D) {
+                //this._q = defaultValue(this._q, 1) + 2500;
+
+                var center = this._primitive._boundingSphereWC[0].center;
+                var centerCarto= Ellipsoid.WGS84.cartesianToCartographic(center);
+                centerCarto.height += 1000000;
+                var center2 = Ellipsoid.WGS84.cartographicToCartesian(centerCarto);
+                Cartesian3.subtract(center2, center, radiiScratch);
+                modelMatrix = Matrix4.fromTranslation(radiiScratch, modelMatrix);
+
+
+//                var transform = Transforms.eastNorthUpToFixedFrame(center);
+//                radiiScratch.x = 0;
+//                radiiScratch.y = 0;
+//                radiiScratch.z = this._q;
+//                Matrix4.multiplyByPoint(transform, radiiScratch, radiiScratch);
+//                modelMatrix = Matrix4.fromTranslation(radiiScratch, modelMatrix);
+
+
+                //var transform2 = Matrix4.inverse(transform, transform);
+                //Matrix4.multiplyByPoint(transform2, radiiScratch, radiiScratch);
+
+                //radiiScratch = Cartesian3.multiplyByScalar(ff, 2, radiiScratch);
+
+                //Matrix4.multiplyByPoint(transform, radiiScratch, radiiScratch);
+                //            radiiScratch.x = radiiScratch.y = radiiScratch.z = 20;
+                //          modelMatrix = Matrix4.multiplyByScale(modelMatrix, radiiScratch, modelMatrix);
+
+                //
+                //            modelMatrix = Matrix4.fromTranslation(radiiScratch, modelMatrix);
+                //
+                //        var a = radiiScratch.clone();
+                //          a.z *= 0.5;
+
+                this._primitive.modelMatrix = modelMatrix;
+                this._outlinePrimitive.modelMatrix = modelMatrix;
+            }
+            //this._outlinePrimitive.modelMatrix = modelMatrix;
+            return;
+        } else {
+            if (defined(this._primitive)) {
+                this._primitives.remove(this._primitive);
+            }
+
+            if (defined(this._outlinePrimitive)) {
+                this._primitives.remove(this._outlinePrimitive);
+            }
+        }
         options.polygonHierarchy.positions = positions.getValue(time, options.polygonHierarchy.positions);
-        options.height = defined(height) ? height.getValue(time, options) : undefined;
-        options.extrudedHeight = defined(extrudedHeight) ? extrudedHeight.getValue(time, options) : undefined;
+        options.height = 1;//defined(height) ? height.getValue(time, options) : undefined;
+        options.extrudedHeight = 0;//defined(extrudedHeight) ? extrudedHeight.getValue(time, options) : undefined;
         options.granularity = defined(granularity) ? granularity.getValue(time) : undefined;
         options.stRotation = defined(stRotation) ? stRotation.getValue(time) : undefined;
 
