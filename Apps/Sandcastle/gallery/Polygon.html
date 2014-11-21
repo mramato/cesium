@@ -85,7 +85,7 @@ var orangePolygonInstance = new Cesium.GeometryInstance({
 });
 
 var primitive = new Cesium.Primitive({
-    asynchronous : false,    
+    asynchronous : false,
     geometryInstances : [orangePolygonInstance],
     appearance : new Cesium.PerInstanceColorAppearance({
         closed : true,
@@ -95,31 +95,43 @@ var primitive = new Cesium.Primitive({
 
 scene.primitives.add(primitive);
 
-var scale = 4;
+var scale = 1;
 var radiiScratch = new Cesium.Cartesian3();
 var orig;
 var center;
 var result;
+var transform = new Cesium.Matrix4();
+var tmp = new Cesium.Matrix4();
+var inverse = new Cesium.Matrix4();
 var ff = scene.preRender.addEventListener(function() {
     if (primitive.ready) {
         orig = Cesium.Matrix4.clone(Cesium.defaultValue(orig, primitive.modelMatrix));
         center = Cesium.Cartesian3.clone(Cesium.defaultValue(center, primitive._boundingSphereWC[0].center));
 
-        result = new Cesium.Matrix4();
-
-        var unit = Cesium.Cartesian3.normalize(center, new Cesium.Cartesian3());
         
-        radiiScratch.x = scale;
-        radiiScratch.y = scale;
+        result = new Cesium.Matrix4();
+       
+        radiiScratch.x = 1;
+        radiiScratch.y = 1;
         radiiScratch.z = scale;
-        Cesium.Matrix4.multiplyByScale(orig, radiiScratch, result);
+        var transform = Cesium.Transforms.eastNorthUpToFixedFrame(center, transform);
+        var nonUScale = Cesium.Matrix4.fromScale(radiiScratch)        
+        inverse = Cesium.Matrix4.inverse(transform, inverse);
+        Cesium.Matrix4.multiply(transform, nonUScale, tmp);
+        Cesium.Matrix4.multiply(tmp, inverse, result);
+        
+        
+//        Cesium.Matrix4.multiplyByPointAsVector(transform, radiiScratch, radiiScratch);
+        
+        //Cesium.Matrix4.multiplyByScale(orig, radiiScratch, result);
         var rotation = Cesium.Matrix4.getRotation(result, new Cesium.Matrix3());
 
         var magnitude = Cesium.Cartesian3.magnitude(center);
+        var unit = Cesium.Cartesian3.normalize(center, new Cesium.Cartesian3());
         Cesium.Cartesian3.multiplyByScalar(unit, (magnitude - (height * 0.5)) * (scale - 1), unit);
         radiiScratch = Cesium.Cartesian3.subtract(Cesium.Cartesian3.ZERO, unit, radiiScratch);
 
-        result = Cesium.Matrix4.fromRotationTranslation(rotation, radiiScratch, result);
+       result = Cesium.Matrix4.fromRotationTranslation(rotation, radiiScratch, result);
 
         primitive.modelMatrix = result;
     }
