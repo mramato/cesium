@@ -9,6 +9,7 @@
     <title>Cesium Demo</title>
     <script type="text/javascript" src="../Sandcastle-header.js"></script>
     <script type="text/javascript" src="../../../ThirdParty/requirejs-2.1.9/require.js"></script>
+    <script type="text/javascript" src="../../../Source/ThirdParty/papaparse.min.js"></script>
     <script type="text/javascript">
     require.config({
         baseUrl : '../../../Source',
@@ -208,7 +209,7 @@ WebGLGlobeDataSource.prototype.loadUrl = function(url) {
     //Use 'when' to load the URL into a json object
     //and then process is with the `load` function.
     var that = this;
-    return Cesium.when(Cesium.loadJson(url), function(json) {
+    return Cesium.when(Cesium.loadText(url), function(json) {
         return that.load(json, url);
     }).otherwise(function(error) {
         //Otherwise will catch any errors or exceptions that occur 
@@ -220,23 +221,58 @@ WebGLGlobeDataSource.prototype.loadUrl = function(url) {
     });
 };
 
+function describe(properties) {
+    var html = '<table class="cesium-infoBox-defaultTable"><tbody>';
+    for ( var key in properties) {
+        if (properties.hasOwnProperty(key)) {
+            var value = properties[key];
+            if (Cesium.defined(value) && value !== '') {
+                if (typeof value === 'object') {
+                    html += '<tr><th>' + key + '</th><td>' + describe(value) + '</td></tr>';
+                } else {
+                    html += '<tr><th>' + key + '</th><td>' + value + '</td></tr>';
+                }
+            }
+        }
+    }
+    html += '</tbody></table>';
+    return html;
+}
+
+function createDescriptionCallback(tree){
+    var description;
+    return function(time, result) {
+        if (!Cesium.defined(description)) {
+            description = describe(tree);
+        }
+        return description;
+    };
+};
+
 /**
  * Loads the provided data, replacing any existing data.
  * @param {Object} data The object to be processed.
  */
-WebGLGlobeDataSource.prototype.load = function(data) {
+WebGLGlobeDataSource.prototype.load = function(text) {
     //>>includeStart('debug', pragmas.debug);
-    if (!Cesium.defined(data)) {
-        throw new Cesium.DeveloperError('data is required.');
+    if (!Cesium.defined(text)) {
+        throw new Cesium.DeveloperError('text is required.');
     }
     //>>includeEnd('debug');
 
+    var data;
+    Papa.parse(text, {
+        delimiter: ',',
+        fastMode: false,
+        header: true,
+        worker: false,
+        complete: function(result) {
+            data = result.data;
+        }
+    });
     //Clear out any data that might already exist.
     this._setLoading(true);
-    this._seriesNames.length = 0;
-    this._seriesToDisplay = undefined;
 
-    var heightScale = this.heightScale;
     var entities = this._entityCollection;
 
     //It's a good idea to suspend events when making changes to a 
@@ -246,58 +282,58 @@ WebGLGlobeDataSource.prototype.load = function(data) {
     entities.suspendEvents();
     entities.removeAll();
 
-    //WebGL Globe JSON is an array of series, where each series itself is an
-    //array of two items, the first containing the series name and the second
-    //being an array of repeating latitude, longitude, height values.
-    //
-    //Here's a more visual example.
-    //[["series1",[latitude, longitude, height, ... ]
-    // ["series2",[latitude, longitude, height, ... ]]
+    var colorHash = {};
+    var wmp = new Cesium.WebMercatorProjection();
 
     // Loop over each series
-    for (var x = 0; x < data.length; x++) {
-        var series = data[x];
-        var seriesName = series[0];
-        var coordinates = series[1];
-
-        //Add the name of the series to our list of possible values.
-        this._seriesNames.push(seriesName);
-
-        //Make the first series the visible one by default
-        var show = x === 0;
-        if (show) {
-            this._seriesToDisplay = seriesName;
+    for (var q = 0; q < data.length; q++) {
+        var tree = data[q];
+        if(!Cesium.defined(tree)||
+           !Cesium.defined(tree.plot__geom__x)||
+           !Cesium.defined(tree.plot__geom__y)){
+            continue;
         }
 
-        //Now loop over each coordinate in the series and create
-        // our entities from the data.
-        for (var i = 0; i < coordinates.length; i += 3) {
-            var latitude = coordinates[i];
-            var longitude = coordinates[i + 1];
-            var height = coordinates[i + 2];
-            var color = Cesium.Color.fromHsl((0.6 - (height * 0.5)), 1.0, 0.5);
-            var surfacePosition = Cesium.Cartesian3.fromDegrees(longitude, latitude, 0);
-            var heightPosition = Cesium.Cartesian3.fromDegrees(longitude, latitude, height * heightScale);
-
-            //WebGL Globe only contains lines, so that's the only graphics we create.
-            var polyline = new Cesium.PolylineGraphics();
-            polyline.show = new Cesium.ConstantProperty(show);
-            polyline.material = Cesium.ColorMaterialProperty.fromColor(color);
-            polyline.width = new Cesium.ConstantProperty(2);
-            polyline.followSurface = new Cesium.ConstantProperty(false);
-            polyline.positions = new Cesium.ConstantProperty([surfacePosition, heightPosition]);
-
-            //The polyline instance itself needs to be on an entity.
-            var entity = new Cesium.Entity(seriesName + ' index ' + i.toString());
-            entity.polyline = polyline;
-
-            //Add a property to the entity that indicates the series name.
-            entity.addProperty('seriesName');
-            entity.seriesName = seriesName;
-
-            //Add the entity to the collection.
-            entities.add(entity);
+        var x = parseFloat(tree.plot__geom__x.replace(/,/g,''));
+        var y = parseFloat(tree.plot__geom__y.replace(/,/g,''));
+        if(isNaN(x) || isNaN(y)){
+            continue;
         }
+
+        var name = tree.species__common_name;
+        var color = colorHash[name];
+        if (!color) {
+            color = Cesium.Color.fromRandom({
+                alpha : 1.0
+            });
+            colorHash[name] = color;
+        }
+        
+        var cartoPosition = wmp.unproject(new Cesium.Cartesian3(x, y));
+        var position = Cesium.Cartesian3.fromRadians(cartoPosition.longitude, cartoPosition.latitude);
+        
+        var diameter = 3;
+        
+        if(Cesium.defined(tree.diameter) && diameter !== '') {
+            diameter = parseFloat(tree.diameter);
+            if(isNaN(diameter)){
+                diameter = 3;
+            }else{
+                diameter = diameter / 5;
+            }
+        }
+
+        var entity = new Cesium.Entity(tree.ID);
+        entity.name = name;
+        entity.point = new Cesium.PointGraphics();
+        entity.point.pixelSize = new Cesium.ConstantProperty(Math.max(3, diameter));
+        entity.point.color = new Cesium.ConstantProperty(color);
+        entity.point.outlineWidth = new Cesium.ConstantProperty(1);
+        entity.position = new Cesium.ConstantPositionProperty(position);
+        entity.description = new Cesium.CallbackProperty(createDescriptionCallback(tree), true);
+
+        //Add the entity to the collection.
+        entities.add(entity);
     }
 
     //Once all data is processed, call resumeEvents and raise the changed event.
@@ -316,29 +352,16 @@ WebGLGlobeDataSource.prototype._setLoading = function(isLoading) {
 //Now that we've defined our own DataSource, we can use it to load
 //any JSON data formatted for WebGL Globe.
 var dataSource = new WebGLGlobeDataSource();
-dataSource.loadUrl('../../SampleData/population909500.json').then(function() {
-
-    //After the initial load, create buttons to let the user switch among series. 
-    function createSeriesSetter(seriesName) {
-        return function() {
-            dataSource.seriesToDisplay = seriesName;
-        };
-    }
-
-    for (var i = 0; i < dataSource.seriesNames.length; i++) {
-        var seriesName = dataSource.seriesNames[i];
-        Sandcastle.addToolbarButton(seriesName, createSeriesSetter(seriesName));
-    }
-});
+dataSource.loadUrl('/tree_export.csv');
 
 //Create a Viewer instances and add the DataSource.
 var viewer = new Cesium.Viewer('cesiumContainer', {
     animation : false,
     timeline : false
 });
+viewer.extend(Cesium.viewerEntityMixin);
 viewer.clock.shouldAnimate = false;
 viewer.dataSources.add(dataSource);
-
 //Sandcastle_End
     Sandcastle.finishedLoading();
 }
