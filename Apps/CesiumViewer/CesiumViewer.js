@@ -62,7 +62,9 @@ define([
         return;
     }
 
-    viewer.extend(viewerDragDropMixin);
+    viewer.extend(viewerDragDropMixin, {
+        dropTarget : document.body
+    });
     if (endUserOptions.inspector) {
         viewer.extend(viewerCesiumInspectorMixin);
     }

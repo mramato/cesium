@@ -1019,7 +1019,18 @@ define([
         this._entityCollection = new EntityCollection();
         this._name = undefined;
         this._isLoading = false;
-        this._proxy = proxy;
+        this._proxy = {
+            getURL : function(url) {
+                var tmp = new Uri(url);
+                url = 'http://www.corsproxy.com/' + tmp.authority + tmp.path;
+
+                if (tmp.query) {
+                    url += '?' + tmp.query;
+                }
+
+                return url;
+            }
+        };
         this._pinBuilder = new PinBuilder();
         this._promises = [];
     };
