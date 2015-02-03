@@ -8,6 +8,7 @@ define([
         'Cesium/DataSources/GeoJsonDataSource',
         'Cesium/DataSources/KmlDataSource',
         'Cesium/Scene/TileMapServiceImageryProvider',
+        'Cesium/Widgets/InfoBox/InfoBoxViewModel',
         'Cesium/Widgets/Viewer/Viewer',
         'Cesium/Widgets/Viewer/viewerCesiumInspectorMixin',
         'Cesium/Widgets/Viewer/viewerDragDropMixin',
@@ -21,11 +22,14 @@ define([
         GeoJsonDataSource,
         KmlDataSource,
         TileMapServiceImageryProvider,
+        InfoBoxViewModel,
         Viewer,
         viewerCesiumInspectorMixin,
         viewerDragDropMixin) {
     "use strict";
     /*global console*/
+
+    InfoBoxViewModel.defaultSanitizer = undefined;
 
     /*
      * 'debug'  : true/false,   // Full WebGL error reporting at substantial performance cost.
