@@ -12,6 +12,7 @@ define([
         '../Core/Math',
         '../Core/Quaternion',
         '../Core/Transforms',
+        './CallbackProperty',
         './SampledProperty',
         './SampledPositionProperty',
         '../ThirdParty/when',
@@ -30,6 +31,7 @@ define([
         CesiumMath,
         Quaternion,
         Transforms,
+        CallbackProperty,
         SampledProperty,
         SampledPositionProperty,
         when,
@@ -169,6 +171,31 @@ define([
         });
     };
 
+    function describe(properties) {
+        var html = '';
+        for ( var key in properties) {
+            if (properties.hasOwnProperty(key)) {
+                var value = properties[key];
+                if (defined(value)) {
+                    html += '<tr><th>' + key + '</th><td>' + value + '</td></tr>';
+                }
+            }
+        }
+
+        if (html.length > 0) {
+            html = '<table class="cesium-infoBox-defaultTable"><tbody>' + html + '</tbody></table>';
+        }
+
+        return html;
+    }
+
+    function createDescriptionCallback(entity) {
+        var description;
+        return function(time, result) {
+            return describe(entity.properties);
+        };
+    }
+
     NextBusDataSource.prototype.processUrl = function(url) {
         DataSource.setLoading(this, true);
         var that = this;
@@ -192,9 +219,6 @@ define([
                     var lon = queryNumericAttribute(child, 'lon');
                     var secSinceReport = queryNumericAttribute(child, 'secsSinceReport');
                     var predictable = queryStringAttribute(child, 'predictable');
-                    if(predictable !== 'true'){
-                        continue;
-                    }
                     var heading = queryNumericAttribute(child, 'heading');
                     var speedKmHr = queryNumericAttribute(child, 'speedKmHr');
                     var leadingVehicleId = queryNumericAttribute(child, 'leadingVehicleId');
@@ -213,7 +237,20 @@ define([
                             uri : '/Apps/SampleData/models/CesiumGround/Cesium_Ground.gltf',
                             minimumPixelSize : 24
                         };
+
+                        entity.properties = {};
                     }
+
+                    entity.properties.id = id;
+                    entity.properties.routeTag = routeTag;
+                    entity.properties.dirTag = dirTag;
+                    entity.properties.lat = lat;
+                    entity.properties.lon = lon;
+                    entity.properties.secSinceReport = secSinceReport;
+                    entity.properties.predictable = predictable;
+                    entity.properties.heading = heading;
+                    entity.properties.speedKmHr = speedKmHr;
+                    entity.properties.leadingVehicleId = leadingVehicleId;
 
                     var samplePosition = Cartesian3.fromDegrees(lon, lat);
                     var sampleTime = JulianDate.addSeconds(time, -secSinceReport, new JulianDate());
@@ -222,6 +259,7 @@ define([
                         entity.orientation.addSample(sampleTime, sampleOrientation);
                     }
                     entity.position.addSample(sampleTime, samplePosition);
+                    entity.description = new CallbackProperty(createDescriptionCallback(entity), true);
                 }
             }
 
