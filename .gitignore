@@ -2,6 +2,7 @@
 /Build
 /Instrumented
 /Cesium-*.zip
+/Temp
 .DS_Store
 Thumbs.db
 

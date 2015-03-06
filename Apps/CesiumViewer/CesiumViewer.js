@@ -3,7 +3,9 @@ define([
         'Cesium/Core/defined',
         'Cesium/Core/formatError',
         'Cesium/Core/getFilenameFromUri',
+        'Cesium/Core/JulianDate',
         'Cesium/Core/queryToObject',
+        'Cesium/DataSources/NextBusDataSource',
         'Cesium/DataSources/CzmlDataSource',
         'Cesium/DataSources/GeoJsonDataSource',
         'Cesium/DataSources/KmlDataSource',
@@ -16,7 +18,9 @@ define([
         defined,
         formatError,
         getFilenameFromUri,
+        JulianDate,
         queryToObject,
+        NextBusDataSource,
         CzmlDataSource,
         GeoJsonDataSource,
         KmlDataSource,
@@ -132,6 +136,29 @@ define([
             viewer.cesiumWidget.showErrorPanel(error, '');
         }
     }
+
+    var start = 1411692601;
+    var stop = 1411794841;
+    var path = '/Temp/sf-muni/';
+    //var path = '/Temp/actransit/';
+
+    var makeLoadFunction = function(dataSource, i) {
+        return function() {
+            return dataSource.processUrl(path + i + '.xml');
+        };
+    };
+
+    var dataSource = new NextBusDataSource();
+    var promise = makeLoadFunction(dataSource, start)();
+    for (var i = start + 60; i < stop; i += 60) {
+        promise = promise.then(makeLoadFunction(dataSource, i));
+    }
+
+    viewer.clock.startTime = JulianDate.fromDate(new Date(start * 1000));
+    viewer.clock.stopTime = JulianDate.fromDate(new Date(stop * 1000));
+    viewer.clock.currentTime = JulianDate.fromDate(new Date(start * 1000));
+    viewer.timeline.zoomTo(viewer.clock.startTime, viewer.clock.stopTime);
+    viewer.dataSources.add(dataSource);
 
     loadingIndicator.style.display = 'none';
 });
