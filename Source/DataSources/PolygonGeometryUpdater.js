@@ -534,23 +534,37 @@ define([
         //>>includeEnd('debug');
 
         var primitives = this._primitives;
+        var geometryUpdater = this._geometryUpdater;
+        var entity = geometryUpdater._entity;
+        var polygon = entity.polygon;
+
+        var options = this._options;
+        var hierarchy = Property.getValueOrUndefined(polygon.hierarchy, time);
+
+        if (!entity.isAvailable(time) || !Property.getValueOrDefault(polygon.show, time, true) || !defined(hierarchy)) {
+            primitives.removeAndDestroy(this._primitive);
+            primitives.removeAndDestroy(this._outlinePrimitive);
+            this._primitive = undefined;
+            this._outlinePrimitive = undefined;
+            return;
+        }
+
+        if (defined(this._primitive)) {
+            var extrudedHeight = Property.getValueOrUndefined(polygon.extrudedHeight, time);
+//              var changePercetange = Math.abs((extrudedHeight - options.extrudedHeight) / options.extrudedHeight);
+//              if (changePercetange < 0.05) {
+//                  return;
+//              }
+
+            if (Math.abs(extrudedHeight - options.extrudedHeight) < 2000) {
+                return;
+            }
+        }
+
         primitives.removeAndDestroy(this._primitive);
         primitives.removeAndDestroy(this._outlinePrimitive);
         this._primitive = undefined;
         this._outlinePrimitive = undefined;
-
-        var geometryUpdater = this._geometryUpdater;
-        var entity = geometryUpdater._entity;
-        var polygon = entity.polygon;
-        if (!entity.isAvailable(time) || !Property.getValueOrDefault(polygon.show, time, true)) {
-            return;
-        }
-
-        var options = this._options;
-        var hierarchy = Property.getValueOrUndefined(polygon.hierarchy, time);
-        if (!defined(hierarchy)) {
-            return;
-        }
 
         if (isArray(hierarchy)) {
             options.polygonHierarchy = new PolygonHierarchy(hierarchy);
