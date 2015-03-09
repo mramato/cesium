@@ -412,7 +412,7 @@ define([
             return Visibility.NONE;
         }
 
-        if (frameState.mode === SceneMode.SCENE3D) {
+        if (false) { //frameState.mode === SceneMode.SCENE3D) {
             var occludeePointInScaledSpace = surfaceTile.occludeePointInScaledSpace;
             if (!defined(occludeePointInScaledSpace)) {
                 return intersection;
