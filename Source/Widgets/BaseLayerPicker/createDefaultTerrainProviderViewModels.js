@@ -17,16 +17,6 @@ define([
     function createDefaultTerrainProviderViewModels() {
         var providerViewModels = [];
         providerViewModels.push(new ProviderViewModel({
-            name : 'WGS84 Ellipsoid',
-            iconUrl : buildModuleUrl('Widgets/Images/TerrainProviders/Ellipsoid.png'),
-            tooltip : 'WGS84 standard ellipsoid, also known as EPSG:4326',
-            creationFunction : function() {
-                return new EllipsoidTerrainProvider();
-            }
-        }));
-
-
-        providerViewModels.push(new ProviderViewModel({
             name : 'STK World Terrain meshes',
             iconUrl : buildModuleUrl('Widgets/Images/TerrainProviders/STK.png'),
             tooltip : 'High-resolution, mesh-based terrain for the entire globe. Free for use on the Internet. Closed-network options are available.\nhttp://www.agi.com',
@@ -36,6 +26,15 @@ define([
                     requestWaterMask : true,
                     requestVertexNormals : true
                 });
+            }
+        }));
+
+        providerViewModels.push(new ProviderViewModel({
+            name : 'WGS84 Ellipsoid',
+            iconUrl : buildModuleUrl('Widgets/Images/TerrainProviders/Ellipsoid.png'),
+            tooltip : 'WGS84 standard ellipsoid, also known as EPSG:4326',
+            creationFunction : function() {
+                return new EllipsoidTerrainProvider();
             }
         }));
 

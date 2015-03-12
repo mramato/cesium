@@ -278,7 +278,7 @@ define([
                     entity.properties.speedKmHr = speedKmHr;
                     entity.properties.leadingVehicleId = leadingVehicleId;
 
-                    var samplePosition = Cartesian3.fromDegrees(lon, lat, -25);
+                    var samplePosition = Cartesian3.fromDegrees(lon, lat, 0);
                     var sampleTime = JulianDate.addSeconds(time, -secSinceReport, new JulianDate());
                     entity.position.addSample(sampleTime, samplePosition);
                     entity.description = new CallbackProperty(createDescriptionCallback(entity), true);

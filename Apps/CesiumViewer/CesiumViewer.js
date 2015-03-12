@@ -147,7 +147,7 @@ define([
     document.addEventListener('keyup', function(e) {
         if (e.keyCode === 'T'.charCodeAt(0)) {
             var start = 1411692601;
-            var stop = 1411790341;
+            var stop = 1412733252;
             var path = '/Temp/sf-muni/';
             //var path = '/Temp/actransit/';
 
