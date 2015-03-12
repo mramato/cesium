@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">  <!-- Use Chrome Frame in IE -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no">
+    <meta name="description" content="Interpolation Demo.">
+    <meta name="cesium-sandcastle-labels" content="FOSS4GNA">
+    <title>Cesium Demo</title>
+    <script type="text/javascript" src="../Sandcastle-header.js"></script>
+    <script type="text/javascript" src="../../../ThirdParty/requirejs-2.1.9/require.js"></script>
+    <script type="text/javascript">
+    require.config({
+        baseUrl : '../../../Source',
+        waitSeconds : 60
+    });
+    </script>
+</head>
+<body class="sandcastle-loading" data-sandcastle-bucket="bucket-requirejs.html">
+<style>
+    @import url(../templates/bucket.css);
+</style>
+<div id="cesiumContainer" class="fullSize"></div>
+<div id="loadingOverlay"><h1>Loading...</h1></div>
+<div id="toolbar"></div>
+<script id="cesium_sandcastle_script">
+function startup(Cesium) {
+    "use strict";
+//Sandcastle_Begin
+var viewer = new Cesium.Viewer('cesiumContainer');
+Cesium.Math.setRandomNumberSeed(3);
+
+var e = Cesium.JulianDate.fromDate(new Date());
+function computeCircle(lon, lat, radius) {
+    var property = new Cesium.SampledPositionProperty();
+    var a = 0;
+    for (var i = -360; i <= 720; i += 45) {
+        var radians = Cesium.Math.toRadians(i);
+        var p = Cesium.Cartesian3.fromDegrees(lon + (radius * Math.cos(radians)), lat + (radius * Math.sin(radians)), Cesium.Math.nextRandomNumber() * 500 + 1750);
+        var d = Cesium.JulianDate.addSeconds(e, i, new Cesium.JulianDate());
+        property.addSample(d, p);
+
+        console.log(p);
+        if (i >= 0 && i <= 360) {
+            viewer.entities.add({
+                position : p,
+                point : {
+                    pixelSize : 10,
+                    color : Cesium.Color.HOT_PINK,
+                    outlineColor : Cesium.Color.ORANGE,
+                    outlineWidth : 2
+                }
+            });
+        }
+    }
+    return property;
+}
+
+viewer.clock.shouldAnimate = false;
+viewer.clock.startTime = e.clone();
+viewer.clock.stopTime = Cesium.JulianDate.addSeconds(e, 360, new Cesium.JulianDate());
+viewer.clock.currentTime = Cesium.JulianDate.addSeconds(e, 1, new Cesium.JulianDate());
+viewer.clock.clockRange = Cesium.ClockRange.LOOP_STOP;
+viewer.zoomTo(viewer.clock.startTime, viewer.clock.stopTime);
+
+var position = computeCircle(-112.110693, 36.0994841, 0.03);
+var entity = viewer.entities.add({
+    name : 'Awesome',
+    position : position,
+    // orientation : new Cesium.VVLH(position),
+    point : {
+        pixelSize : 5,
+        color : Cesium.Color.BLUE,
+        outlineColor : Cesium.Color.BLACK
+    },
+    // model : {
+    //    uri : '../../SampleData/models/CesiumAir/Cesium_Air.gltf'
+    //   },
+    path : {
+        show : false,
+        resolution : 1,
+        material : Cesium.Color.HOTPINK,
+        width : 5
+    }
+});
+entity.availability = new Cesium.TimeIntervalCollection();
+entity.availability.addInterval({
+    start : e,
+    stop : Cesium.JulianDate.addSeconds(e, 360, new Cesium.JulianDate())
+});
+
+Sandcastle.addToolbarButton('Zoom', function() {
+    viewer.trackedEntity = entity;
+});
+
+Sandcastle.addToolbarButton('Linear', function() {
+    entity.path.show = true;
+    entity.position.setInterpolationOptions({
+        interpolationDegree : 1,
+        interpolationAlgorithm : Cesium.LinearApproximation
+    });
+});
+
+Sandcastle.addToolbarButton('Lagrange', function() {
+    entity.path.show = true;
+    entity.position.setInterpolationOptions({
+        interpolationDegree : 5,
+        interpolationAlgorithm : Cesium.LagrangePolynomialApproximation
+    });
+});
+
+Sandcastle.addToolbarButton('Hermite', function() {
+    entity.path.show = true;
+    entity.position.setInterpolationOptions({
+        interpolationDegree : 2,
+        interpolationAlgorithm : Cesium.LagrangePolynomialApproximation
+    });
+});
+
+viewer.zoomTo(viewer.entities, new Cesium.HeadingPitchRange(Cesium.Math.toRadians(-90), Cesium.Math.toRadians(-45), 0));
+//Sandcastle_End
+    Sandcastle.finishedLoading();
+}
+if (typeof Cesium !== "undefined") {
+    startup(Cesium);
+} else if (typeof require === "function") {
+    require(["Cesium"], startup);
+}
+</script>
+</body>
+</html>
