@@ -27,7 +27,7 @@
 function startup(Cesium) {
     "use strict";
 //Sandcastle_Begin
-var viewer = new Cesium.Viewer('cesiumContainer', {scene3DOnly : true});
+var viewer = new Cesium.Viewer('cesiumContainer');
 
 //Example 1: Load with default styling.
 Sandcastle.addDefaultToolbarButton('Default styling', function() {
@@ -94,15 +94,9 @@ Sandcastle.addToolbarButton('Animated', function() {
     var promise = Cesium.GeoJsonDataSource.load('../../SampleData/ne_10m_us_states.topojson');
     promise.then(function(dataSource) {
         viewer.dataSources.add(dataSource);
-
-        //Get the array of entities
         var entities = dataSource.entities.values;
-
         var colorHash = {};
         for (var i = 0; i < entities.length; i++) {
-            //For each entity, create a random color based on the state name.
-            //Some states have multiple entities, so we store the color in a
-            //hash so that we use the same color for the entire state.
             var entity = entities[i];
             var name = entity.name;
             var color = colorHash[name];
@@ -113,6 +107,9 @@ Sandcastle.addToolbarButton('Animated', function() {
                 colorHash[name] = color;
             }
 
+            entity.polygon.outline = false;
+            entity.polygon.material = color;
+
             var start = Cesium.JulianDate.fromDate(new Date(Date.parse(entity.properties.Statehood)));
             var stop = Cesium.JulianDate.fromIso8601('2008');
             entity.availability = new Cesium.TimeIntervalCollection();
@@ -121,16 +118,6 @@ Sandcastle.addToolbarButton('Animated', function() {
                 stop : stop
             });
 
-            entity.polygon.outline = false;
-
-            //Set the polygon material to our random color.
-            entity.polygon.material = color;
-            //Outline each polygon in black.
-            entity.polygon.outlineColor = Cesium.Color.BLACK;
-
-            //Extrude the polygon based on the state's population.  Each entity
-            //stores the properties for the GeoJSON feature it was created from
-            //Since the population is a huge number, we divide by 50.
             var extrudedHeight = new Cesium.SampledProperty(Number);
             extrudedHeight.addSample(start, 0);
             extrudedHeight.addSample(stop, entity.properties.Population / 50.0);
@@ -141,10 +128,9 @@ Sandcastle.addToolbarButton('Animated', function() {
         viewer.clock.startTime = availability.start.clone();
         viewer.clock.stopTime = availability.stop.clone();
         viewer.clock.currentTime = availability.start.clone();
-        viewer.clock.multiplier = 60*60*24*365*4;
+        viewer.clock.multiplier = 60*60*24*365*6;
         viewer.clock.clockRange = Cesium.ClockRange.LOOP_STOP;
         viewer.timeline.zoomTo(viewer.clock.startTime, viewer.clock.stopTime);
-
     }).otherwise(function(error){
         //Display any errrors encountered while loading.
         window.alert(error);

@@ -133,5 +133,11 @@ define([
         }
     }
 
+    document.addEventListener('keyup', function(e) {
+        if (e.keyCode === 'L'.charCodeAt(0)) {
+            viewer.scene.globe.enableLighting = !viewer.scene.globe.enableLighting;
+        }
+    }, false);
+
     loadingIndicator.style.display = 'none';
 });

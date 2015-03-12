@@ -27,7 +27,14 @@
 function startup(Cesium) {
     "use strict";
 //Sandcastle_Begin
-var viewer = new Cesium.Viewer('cesiumContainer');
+var viewer = new Cesium.Viewer('cesiumContainer', {
+    terrainProvider : new Cesium.CesiumTerrainProvider({
+        url : '//cesiumjs.org/stk-terrain/world',
+        requestWaterMask : true,
+        requestVertexNormals : true
+    }),
+    baseLayerPicker : false
+});
 Cesium.Math.setRandomNumberSeed(3);
 
 var e = Cesium.JulianDate.fromDate(new Date());
@@ -64,18 +71,33 @@ viewer.clock.clockRange = Cesium.ClockRange.LOOP_STOP;
 viewer.zoomTo(viewer.clock.startTime, viewer.clock.stopTime);
 
 var position = computeCircle(-112.110693, 36.0994841, 0.03);
+var orientation = new Cesium.CallbackProperty(function(time, result) {
+    var position1 = position.getValue(time);
+    var position2 = position.getValue(Cesium.JulianDate.addSeconds(time, 1, new Cesium.JulianDate()));
+    var normal = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(position1);
+
+    var direction = Cesium.Cartesian3.subtract(position2, position1, new Cesium.Cartesian3());
+    Cesium.Cartesian3.normalize(direction, direction);
+    var right = Cesium.Cartesian3.cross(direction, normal, new Cesium.Cartesian3());
+    var up = Cesium.Cartesian3.cross(right, direction, new Cesium.Cartesian3());
+    Cesium.Cartesian3.cross(direction, up, right);
+
+    var basis = new Cesium.Matrix3();
+    Cesium.Matrix3.setColumn(basis, 1, Cesium.Cartesian3.negate(right, right), basis);
+    Cesium.Matrix3.setColumn(basis, 0, direction, basis);
+    Cesium.Matrix3.setColumn(basis, 2, up, basis);
+
+    return Cesium.Quaternion.fromRotationMatrix(basis);
+}, false);
+
 var entity = viewer.entities.add({
     name : 'Awesome',
     position : position,
-    // orientation : new Cesium.VVLH(position),
-    point : {
-        pixelSize : 5,
-        color : Cesium.Color.BLUE,
-        outlineColor : Cesium.Color.BLACK
+    orientation : orientation,
+    model : {
+        uri : '../../SampleData/models/tie_fighter.gltf',
+        minimumPixelSize : 32
     },
-    // model : {
-    //    uri : '../../SampleData/models/CesiumAir/Cesium_Air.gltf'
-    //   },
     path : {
         show : false,
         resolution : 1,
