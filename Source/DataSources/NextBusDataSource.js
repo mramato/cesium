@@ -260,7 +260,7 @@ define([
                         entity.orientation = createOrientation(entity.position);
 
                         entity.model = {
-                            uri : '/Apps/SampleData/models/CesiumMilkTruck/CesiumMilkTruck.gltf',
+                            uri : '/Temp/CesiumMilkTruck.gltf',
                             minimumPixelSize : 24
                         };
 
