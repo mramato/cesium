@@ -2025,6 +2025,28 @@ define([
         return getPickRayOrthographic(this, windowPosition, result);
     };
 
+    var scratchToCenter = new Cartesian3();
+    var scratchProj = new Cartesian3();
+
+    /**
+     * DOC_TBA.
+     *
+     * Distance from camera to front of the bounding sphere.  Clamped to the near plane.
+     *
+     * @param {BoundingSphere} boundingSphere The bounding sphere in world coordinates.
+     */
+    Camera.prototype.distanceToBoundingSphere = function(boundingSphere) {
+        //>>includeStart('debug', pragmas.debug);
+        if (!defined(boundingSphere)) {
+            throw new DeveloperError('boundingSphere is required.');
+        }
+        //>>includeEnd('debug');
+
+        var toCenter = Cartesian3.subtract(this.positionWC, boundingSphere.center, scratchToCenter);
+        var proj = Cartesian3.multiplyByScalar(this.directionWC, Cartesian3.dot(toCenter, this.directionWC), scratchProj);
+        return Math.max(this.frustum.near, Cartesian3.magnitude(proj) - boundingSphere.radius);
+    };
+
     function createAnimation2D(camera, duration) {
         var position = camera.position;
         var translateX = position.x < -camera._maxCoord.x || position.x > camera._maxCoord.x;

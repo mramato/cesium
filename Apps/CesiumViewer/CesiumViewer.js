@@ -1,9 +1,11 @@
 /*global define*/
 define([
+        'Cesium/Core/Cartesian3',
         'Cesium/Core/defined',
         'Cesium/Core/formatError',
         'Cesium/Core/getFilenameFromUri',
         'Cesium/Core/JulianDate',
+        'Cesium/Core/Math',
         'Cesium/Core/queryToObject',
         'Cesium/DataSources/NextBusDataSource',
         'Cesium/DataSources/CzmlDataSource',
@@ -15,10 +17,12 @@ define([
         'Cesium/Widgets/Viewer/viewerDragDropMixin',
         'domReady!'
     ], function(
+        Cartesian3,
         defined,
         formatError,
         getFilenameFromUri,
         JulianDate,
+        CesiumMath,
         queryToObject,
         NextBusDataSource,
         CzmlDataSource,
@@ -38,6 +42,9 @@ define([
      * 'stats'  : true,         // Enable the FPS performance display.
      * 'theme'  : 'lighter',    // Use the dark-text-on-light-background theme.
      * 'scene3DOnly' : false    // Enable 3D only mode
+     * 'flyTo' : longitude,latitude,[height,heading,pitch,roll]
+     *    // Using degrees and meters
+     *    // [height,heading,pitch,roll] default is looking straight down, [300,0,-90,0]
      */
     var endUserOptions = queryToObject(window.location.search.substring(1));
 
@@ -137,8 +144,8 @@ define([
         }
     }
 
-   // document.addEventListener('keyup', function(e) {
-  //      if (e.keyCode === 'T'.charCodeAt(0)) {
+    document.addEventListener('keyup', function(e) {
+        if (e.keyCode === 'T'.charCodeAt(0)) {
             var start = 1411692601;
             var stop = 1411790341;
             var path = '/Temp/sf-muni/';
@@ -161,8 +168,30 @@ define([
             viewer.clock.currentTime = JulianDate.fromDate(new Date(start * 1000));
             viewer.timeline.zoomTo(viewer.clock.startTime, viewer.clock.stopTime);
             viewer.dataSources.add(dataSource);
-   //     }
-  //  }, false);
+        }
+    }, false);
+
+    var flyTo = endUserOptions.flyTo;
+    if (defined(flyTo)) {
+        var splitQuery = flyTo.split(/[ ,]+/);
+        if (splitQuery.length > 1) {
+            var longitude = !isNaN(+splitQuery[0]) ? +splitQuery[0] : 0.0;
+            var latitude = !isNaN(+splitQuery[1]) ? +splitQuery[1] : 0.0;
+            var height = ((splitQuery.length > 2) && (!isNaN(+splitQuery[2]))) ? +splitQuery[2] : 300.0;
+            var heading = ((splitQuery.length > 3) && (!isNaN(+splitQuery[3]))) ? CesiumMath.toRadians(+splitQuery[3]) : undefined;
+            var pitch = ((splitQuery.length > 4) && (!isNaN(+splitQuery[4]))) ? CesiumMath.toRadians(+splitQuery[4]) : undefined;
+            var roll = ((splitQuery.length > 5) && (!isNaN(+splitQuery[5]))) ? CesiumMath.toRadians(+splitQuery[5]) : undefined;
+
+            viewer.camera.flyTo({
+                destination : Cartesian3.fromDegrees(longitude, latitude, height),
+                orientation : {
+                    heading : heading,
+                    pitch : pitch,
+                    roll : roll
+                }
+            });
+        }
+    }
 
     loadingIndicator.style.display = 'none';
 });
