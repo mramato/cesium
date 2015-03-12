@@ -10,6 +10,8 @@ define([
         '../Core/JulianDate',
         '../Core/loadXml',
         '../Core/Math',
+        '../Core/Matrix3',
+        '../Core/Ellipsoid',
         '../Core/Quaternion',
         '../Core/Transforms',
         './CallbackProperty',
@@ -29,6 +31,8 @@ define([
         JulianDate,
         loadXml,
         CesiumMath,
+        Matrix3,
+        Ellipsoid,
         Quaternion,
         Transforms,
         CallbackProperty,
@@ -196,6 +200,30 @@ define([
         };
     }
 
+    function createOrientation(position) {
+        return new CallbackProperty(function(time, result) {
+            var position1 = position.getValue(time);
+            var position2 = position.getValue(JulianDate.addSeconds(time, 1, new JulianDate()));
+            if(!defined(position1) || !defined(position2) || Cartesian3.equals(position1, position2)){
+                return undefined;
+            }
+            var normal = Ellipsoid.WGS84.geodeticSurfaceNormal(position1);
+
+            var direction = Cartesian3.subtract(position2, position1, new Cartesian3());
+            Cartesian3.normalize(direction, direction);
+            var right = Cartesian3.cross(direction, normal, new Cartesian3());
+            var up = Cartesian3.cross(right, direction, new Cartesian3());
+            Cartesian3.cross(direction, up, right);
+
+            var basis = new Matrix3();
+            Matrix3.setColumn(basis, 1, Cartesian3.negate(right, right), basis);
+            Matrix3.setColumn(basis, 0, direction, basis);
+            Matrix3.setColumn(basis, 2, up, basis);
+
+            return Quaternion.fromRotationMatrix(basis, result);
+        }, false);
+    }
+
     NextBusDataSource.prototype.processUrl = function(url) {
         DataSource.setLoading(this, true);
         var that = this;
@@ -229,12 +257,10 @@ define([
                         entity.position.backwardExtrapolationType = ExtrapolationType.NONE;
                         entity.position.forwardExtrapolationType = ExtrapolationType.NONE;
 
-                        entity.orientation = new SampledProperty(Quaternion);
-                        entity.orientation.backwardExtrapolationType = ExtrapolationType.NONE;
-                        entity.orientation.forwardExtrapolationType = ExtrapolationType.NONE;
+                        entity.orientation = createOrientation(entity.position);
 
                         entity.model = {
-                            uri : '/Apps/SampleData/models/CesiumGround/Cesium_Ground.gltf',
+                            uri : '/Apps/SampleData/models/CesiumMilkTruck/CesiumMilkTruck.gltf',
                             minimumPixelSize : 24
                         };
 
@@ -254,10 +280,6 @@ define([
 
                     var samplePosition = Cartesian3.fromDegrees(lon, lat);
                     var sampleTime = JulianDate.addSeconds(time, -secSinceReport, new JulianDate());
-                    if (heading >= 0) {
-                        var sampleOrientation = Transforms.headingPitchRollQuaternion(samplePosition, CesiumMath.toRadians(heading - 90), 0, 0);
-                        entity.orientation.addSample(sampleTime, sampleOrientation);
-                    }
                     entity.position.addSample(sampleTime, samplePosition);
                     entity.description = new CallbackProperty(createDescriptionCallback(entity), true);
                 }
