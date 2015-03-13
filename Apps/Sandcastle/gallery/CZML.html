@@ -29,19 +29,7 @@ function startup(Cesium) {
     "use strict";
 //Sandcastle_Begin
 var viewer = new Cesium.Viewer('cesiumContainer');
-
-Sandcastle.addDefaultToolbarButton('Satellites', function() {
-    viewer.dataSources.add(Cesium.CzmlDataSource.load('http://localhost/mramato/11-20-2014/gps/gps.czml'));
-});
-
-Sandcastle.addToolbarButton('Vehicle', function() {
-    viewer.dataSources.add(Cesium.CzmlDataSource.load('../../SampleData/Vehicle.czml'));
-});
-
-Sandcastle.reset = function() {
-    viewer.dataSources.removeAll();
-    viewer.homeButton.viewModel.command();
-};
+viewer.dataSources.add(Cesium.CzmlDataSource.load('http://localhost/mramato/11-20-2014/gps/gps.czml'));
 //Sandcastle_End
     Sandcastle.finishedLoading();
 }
