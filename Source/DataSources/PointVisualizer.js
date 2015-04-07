@@ -36,10 +36,48 @@ define([
     var EntityData = function(entity) {
         this.entity = entity;
         this.billboard = undefined;
-        this.color = undefined;
-        this.outlineColor = undefined;
-        this.pixelSize = undefined;
-        this.outlineWidth = undefined;
+
+        this.lastColor = undefined;
+        this.lastOutlineColor = undefined;
+        this.lastPixelSize = undefined;
+        this.lastOutlineWidth = undefined;
+
+        this.isConstant = false;
+        this.needsUpdate = false;
+
+        this.init(entity);
+    };
+
+    EntityData.prototype.init = function() {
+        var entity = this.entity;
+        var point = entity.point;
+
+        var positionProperty = entity.position;
+        var constantPosition = Property.isConstant(positionProperty);
+
+        var showProperty = point.show;
+        var constantShow = Property.isConstant(showProperty);
+
+        var colorProperty = point.color;
+        var constantColor = Property.isConstant(colorProperty);
+
+        var pixelSizeProperty = point.pixelSize;
+        var constantPixelSize = Property.isConstant(pixelSizeProperty);
+
+        var outlineColorProperty = point.outlineColor;
+        var constantOutlineColor = Property.isConstant(outlineColorProperty);
+
+        var outlineWidthProperty = point.outlineWidth;
+        var constantOutlineWidth = Property.isConstant(outlineWidthProperty);
+
+        var scaleByDistanceProperty = point.scaleByDistance;
+        var constantScaleByDistance = Property.isConstant(scaleByDistanceProperty);
+
+        this.isConstant = !defined(entity.availability) && //
+        positionProperty && constantShow && constantColor && constantPixelSize && //
+        constantOutlineColor && constantOutlineWidth && constantScaleByDistance;
+
+        this.needsUpdate = true;
     };
 
     /**
@@ -91,6 +129,11 @@ define([
             var entity = item.entity;
             var pointGraphics = entity._point;
             var billboard = item.billboard;
+
+            if (item.isConstant && !item.needsUpdate) {
+                continue;
+            }
+
             var show = entity.isShowing && entity.isAvailable(time) && Property.getValueOrDefault(pointGraphics._show, time, true);
             if (show) {
                 position = Property.getValueOrUndefined(entity._position, time, position);
@@ -140,24 +183,24 @@ define([
             if (newOutlineWidth > 0) {
                 billboard.scale = 1.0;
                 needRedraw = needRedraw || //
-                             newOutlineWidth !== item.outlineWidth || //
-                             newPixelSize !== item.pixelSize || //
-                             !Color.equals(newColor, item.color) || //
-                             !Color.equals(newOutlineColor, item.outlineColor);
+                             newOutlineWidth !== item.lastOutlineWidth || //
+                             newPixelSize !== item.lastPixelSize || //
+                             !Color.equals(newColor, item.lastColor) || //
+                             !Color.equals(newOutlineColor, item.lastOutlineColor);
             } else {
                 billboard.scale = newPixelSize / 50.0;
                 newPixelSize = 50.0;
                 needRedraw = needRedraw || //
-                             newOutlineWidth !== item.outlineWidth || //
-                             !Color.equals(newColor, item.color) || //
-                             !Color.equals(newOutlineColor, item.outlineColor);
+                             newOutlineWidth !== item.lastOutlineWidth || //
+                             !Color.equals(newColor, item.lastColor) || //
+                             !Color.equals(newOutlineColor, item.lastOutlineColor);
             }
 
             if (needRedraw) {
-                item.color = Color.clone(newColor, item.color);
-                item.outlineColor = Color.clone(newOutlineColor, item.outlineColor);
-                item.pixelSize = newPixelSize;
-                item.outlineWidth = newOutlineWidth;
+                item.lacColor = Color.clone(newColor, item.lastColor);
+                item.lastOutlineColor = Color.clone(newOutlineColor, item.lastOutlineColor);
+                item.lastPixelSize = newPixelSize;
+                item.lastOutlineWidth = newOutlineWidth;
 
                 var centerAlpha = newColor.alpha;
                 var cssColor = newColor.toCssColorString();
@@ -166,6 +209,7 @@ define([
 
                 billboard.setImage(textureId, createCallback(centerAlpha, cssColor, cssOutlineColor, newOutlineWidth, newPixelSize));
             }
+            item.needsUpdate = false;
         }
         return true;
     };
@@ -237,8 +281,11 @@ define([
         for (i = changed.length - 1; i > -1; i--) {
             entity = changed[i];
             if (defined(entity._point) && defined(entity._position)) {
-                if (!items.contains(entity.id)) {
+                var itemData = items.get(entity.id);
+                if (!defined(itemData)) {
                     items.set(entity.id, new EntityData(entity));
+                } else {
+                    itemData.init();
                 }
             } else {
                 returnBillboard(items.get(entity.id), unusedIndexes);

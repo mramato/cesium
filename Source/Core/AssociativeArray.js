@@ -17,7 +17,7 @@ define([
      */
     var AssociativeArray = function() {
         this._array = [];
-        this._hash = {};
+        this._hash = new Map();
     };
 
     defineProperties(AssociativeArray.prototype, {
@@ -59,7 +59,7 @@ define([
             throw new DeveloperError('key is required to be a string or number.');
         }
         //>>includeEnd('debug');
-        return defined(this._hash[key]);
+        return this._hash.has(key);
     };
 
     /**
@@ -76,10 +76,17 @@ define([
         }
         //>>includeEnd('debug');
 
-        var oldValue = this._hash[key];
-        if (value !== oldValue) {
-            this.remove(key);
-            this._hash[key] = value;
+        var hash = this._hash;
+
+        if (hash.has(key)) {
+            var oldValue = hash.get(key);
+            if (value !== oldValue) {
+                this.remove(key);
+                hash.set(key, value);
+                this._array.push(value);
+            }
+        } else {
+            hash.set(key, value);
             this._array.push(value);
         }
     };
@@ -96,7 +103,7 @@ define([
             throw new DeveloperError('key is required to be a string or number.');
         }
         //>>includeEnd('debug');
-        return this._hash[key];
+        return this._hash.get(key);
     };
 
     /**
@@ -112,12 +119,11 @@ define([
         }
         //>>includeEnd('debug');
 
-        var value = this._hash[key];
-        var hasValue = defined(value);
+        var value = this._hash.get(key);
+        var hasValue = this._hash.delete(key);
         if (hasValue) {
             var array = this._array;
             array.splice(array.indexOf(value), 1);
-            this._hash[key] = undefined;
         }
         return hasValue;
     };
@@ -128,7 +134,7 @@ define([
     AssociativeArray.prototype.removeAll = function() {
         var array = this._array;
         if (array.length > 0) {
-            this._hash = {};
+            this._hash.clear();
             array.length = 0;
         }
     };

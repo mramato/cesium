@@ -27,7 +27,22 @@
 function startup(Cesium) {
     "use strict";
 //Sandcastle_Begin
-var viewer = new Cesium.Viewer('cesiumContainer');
+var viewer = new Cesium.Viewer('cesiumContainer', { selectionIndicator : false, infoBox : false});
+viewer.scene.debugShowFramesPerSecond = true;
+
+Sandcastle.addToolbarButton('Go', function() {
+    viewer.entities.suspendEvents();
+    for (var i = 0; i < 250000; i++) {
+        var entity = new Cesium.Entity();
+        entity.position = new Cesium.ConstantPositionProperty(Cesium.Cartesian3.fromDegrees(Math.random(), Math.random(), 0));
+        entity.point = new Cesium.PointGraphics();
+        entity.point.pixelSize = new Cesium.ConstantProperty(3);
+        entity.point.color = Cesium.Color.ORANGE;
+        viewer.entities.add(entity);
+    }
+    viewer.entities.resumeEvents();
+    viewer.zoomTo(viewer.entities);
+});
 //Sandcastle_End
     Sandcastle.finishedLoading();
 }
