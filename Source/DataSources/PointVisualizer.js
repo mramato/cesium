@@ -7,7 +7,7 @@ define([
         '../Core/destroyObject',
         '../Core/DeveloperError',
         '../Core/NearFarScalar',
-        '../Scene/BillboardCollection',
+        '../Scene/PointPrimitiveCollection',
         './BoundingSphereState',
         './Property'
     ], function(
@@ -18,7 +18,7 @@ define([
         destroyObject,
         DeveloperError,
         NearFarScalar,
-        BillboardCollection,
+        PointPrimitiveCollection,
         BoundingSphereState,
         Property) {
     "use strict";
@@ -32,10 +32,11 @@ define([
     var position = new Cartesian3();
     var outlineColor = new Color();
     var scaleByDistance = new NearFarScalar();
+    var translucencyByDistance = new NearFarScalar();
 
     var EntityData = function(entity) {
         this.entity = entity;
-        this.billboard = undefined;
+        this.pointPrimitive = undefined;
 
         this.lastColor = undefined;
         this.lastOutlineColor = undefined;
@@ -81,7 +82,7 @@ define([
     };
 
     /**
-     * A {@link Visualizer} which maps {@link Entity#point} to a {@link Billboard}.
+     * A {@link Visualizer} which maps {@link Entity#point} to a {@link PointPrimitive}.
      * @alias PointVisualizer
      * @constructor
      *
@@ -103,7 +104,7 @@ define([
         this._scene = scene;
         this._unusedIndexes = [];
         this._entityCollection = entityCollection;
-        this._billboardCollection = undefined;
+        this._pointPrimitiveCollection = undefined;
         this._items = new AssociativeArray();
         this._onCollectionChanged(entityCollection, entityCollection.values, [], []);
     };
@@ -128,7 +129,7 @@ define([
             var item = items[i];
             var entity = item.entity;
             var pointGraphics = entity._point;
-            var billboard = item.billboard;
+            var pointPrimitive = item.pointPrimitive;
 
             if (item.isConstant && !item.needsUpdate) {
                 continue;
@@ -140,75 +141,29 @@ define([
                 show = defined(position);
             }
             if (!show) {
-                returnBillboard(item, unusedIndexes);
+                returnPointPrimitive(item, unusedIndexes);
                 continue;
             }
 
-            var init = false;
-            var needRedraw = false;
-            if (!defined(billboard)) {
-                init = true;
-                var billboardCollection = this._billboardCollection;
-                if (!defined(billboardCollection)) {
-                    billboardCollection = new BillboardCollection();
-                    this._billboardCollection = billboardCollection;
-                    this._scene.primitives.add(billboardCollection);
+            if (!defined(pointPrimitive)) {
+                var pointPrimitiveCollection = this._pointPrimitiveCollection;
+                if (!defined(pointPrimitiveCollection)) {
+                    pointPrimitiveCollection = new PointPrimitiveCollection();
+                    this._pointPrimitiveCollection = pointPrimitiveCollection;
+                    this._scene.primitives.add(pointPrimitiveCollection);
                 }
 
                 var length = unusedIndexes.length;
                 if (length > 0) {
-                    billboard = billboardCollection.get(unusedIndexes.pop());
+                    pointPrimitive = pointPrimitiveCollection.get(unusedIndexes.pop());
                 } else {
-                    billboard = billboardCollection.add();
+                    pointPrimitive = pointPrimitiveCollection.add();
                 }
 
-                billboard.id = entity;
-                billboard.image = undefined;
-                item.billboard = billboard;
-                needRedraw = true;
+                pointPrimitive.id = entity;
+                item.pointPrimitive = pointPrimitive;
             }
 
-            billboard.show = true;
-            billboard.position = position;
-            billboard.scaleByDistance = Property.getValueOrUndefined(pointGraphics._scaleByDistance, time, scaleByDistance);
-
-            var colorProperty = pointGraphics._color;
-            var outlineColorProperty = pointGraphics._outlineColor;
-
-            var newColor = Property.getValueOrDefault(colorProperty, time, defaultColor, color);
-            var newOutlineColor = Property.getValueOrDefault(outlineColorProperty, time, defaultOutlineColor, outlineColor);
-            var newOutlineWidth = Math.round(Property.getValueOrDefault(pointGraphics._outlineWidth, time, defaultOutlineWidth));
-            var newPixelSize = Math.max(1, Math.round(Property.getValueOrDefault(pointGraphics._pixelSize, time, defaultPixelSize)));
-
-            if (newOutlineWidth > 0) {
-                billboard.scale = 1.0;
-                needRedraw = needRedraw || //
-                             newOutlineWidth !== item.lastOutlineWidth || //
-                             newPixelSize !== item.lastPixelSize || //
-                             !Color.equals(newColor, item.lastColor) || //
-                             !Color.equals(newOutlineColor, item.lastOutlineColor);
-            } else {
-                billboard.scale = newPixelSize / 50.0;
-                newPixelSize = 50.0;
-                needRedraw = needRedraw || //
-                             newOutlineWidth !== item.lastOutlineWidth || //
-                             !Color.equals(newColor, item.lastColor) || //
-                             !Color.equals(newOutlineColor, item.lastOutlineColor);
-            }
-
-            if (needRedraw) {
-                item.lacColor = Color.clone(newColor, item.lastColor);
-                item.lastOutlineColor = Color.clone(newOutlineColor, item.lastOutlineColor);
-                item.lastPixelSize = newPixelSize;
-                item.lastOutlineWidth = newOutlineWidth;
-
-                var centerAlpha = newColor.alpha;
-                var cssColor = newColor.toCssColorString();
-                var cssOutlineColor = newOutlineColor.toCssColorString();
-                var textureId = JSON.stringify([cssColor, newPixelSize, cssOutlineColor, newOutlineWidth]);
-
-                billboard.setImage(textureId, createCallback(centerAlpha, cssColor, cssOutlineColor, newOutlineWidth, newPixelSize));
-            }
             item.needsUpdate = false;
         }
         return true;
@@ -236,11 +191,11 @@ define([
         //>>includeEnd('debug');
 
         var item = this._items.get(entity.id);
-        if (!defined(item) || !defined(item.billboard)) {
+        if (!defined(item) || !defined(item.pointPrimitive)) {
             return BoundingSphereState.FAILED;
         }
 
-        result.center = Cartesian3.clone(item.billboard.position, result.center);
+        result.center = Cartesian3.clone(item.pointPrimitive.position, result.center);
         result.radius = 0;
         return BoundingSphereState.DONE;
     };
@@ -259,8 +214,8 @@ define([
      */
     PointVisualizer.prototype.destroy = function() {
         this._entityCollection.collectionChanged.removeEventListener(PointVisualizer.prototype._onCollectionChanged, this);
-        if (defined(this._billboardCollection)) {
-            this._scene.primitives.remove(this._billboardCollection);
+        if (defined(this._pointPrimitiveCollection)) {
+            this._scene.primitives.remove(this._pointPrimitiveCollection);
         }
         return destroyObject(this);
     };
@@ -288,67 +243,27 @@ define([
                     itemData.init();
                 }
             } else {
-                returnBillboard(items.get(entity.id), unusedIndexes);
+                returnPointPrimitive(items.get(entity.id), unusedIndexes);
                 items.remove(entity.id);
             }
         }
 
         for (i = removed.length - 1; i > -1; i--) {
             entity = removed[i];
-            returnBillboard(items.get(entity.id), unusedIndexes);
+            returnPointPrimitive(items.get(entity.id), unusedIndexes);
             items.remove(entity.id);
         }
     };
 
-    function returnBillboard(item, unusedIndexes) {
+    function returnPointPrimitive(item, unusedIndexes) {
         if (defined(item)) {
-            var billboard = item.billboard;
-            if (defined(billboard)) {
-                item.billboard = undefined;
-                billboard.show = false;
-                billboard.image = undefined;
-                unusedIndexes.push(billboard._index);
+            var pointPrimitive = item.pointPrimitive;
+            if (defined(pointPrimitive)) {
+                item.pointPrimitive = undefined;
+                pointPrimitive.show = false;
+                unusedIndexes.push(pointPrimitive._index);
             }
         }
-    }
-
-    function createCallback(centerAlpha, cssColor, cssOutlineColor, cssOutlineWidth, newPixelSize) {
-        return function(id) {
-            var canvas = document.createElement('canvas');
-
-            var length = newPixelSize + (2 * cssOutlineWidth);
-            canvas.height = canvas.width = length;
-
-            var context2D = canvas.getContext('2d');
-            context2D.clearRect(0, 0, length, length);
-
-            if (cssOutlineWidth !== 0) {
-                context2D.beginPath();
-                context2D.arc(length / 2, length / 2, length / 2, 0, 2 * Math.PI, true);
-                context2D.closePath();
-                context2D.fillStyle = cssOutlineColor;
-                context2D.fill();
-                // Punch a hole in the center if needed.
-                if (centerAlpha < 1.0) {
-                    context2D.save();
-                    context2D.globalCompositeOperation = 'destination-out';
-                    context2D.beginPath();
-                    context2D.arc(length / 2, length / 2, newPixelSize / 2, 0, 2 * Math.PI, true);
-                    context2D.closePath();
-                    context2D.fillStyle = 'black';
-                    context2D.fill();
-                    context2D.restore();
-                }
-            }
-
-            context2D.beginPath();
-            context2D.arc(length / 2, length / 2, newPixelSize / 2, 0, 2 * Math.PI, true);
-            context2D.closePath();
-            context2D.fillStyle = cssColor;
-            context2D.fill();
-
-            return canvas;
-        };
     }
 
     return PointVisualizer;
